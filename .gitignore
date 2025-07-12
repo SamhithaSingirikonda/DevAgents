@@ -3,9 +3,6 @@
 .idea
 .vscode
 
-# env
 .env
-.venv/
-env/
 venv/
 LICENSE
