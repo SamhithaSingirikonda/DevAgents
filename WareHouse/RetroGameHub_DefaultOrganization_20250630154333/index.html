@@ -1,0 +1,61 @@
+'''  
+HTML template for retro arcade games display  
+'''  
+<!DOCTYPE html>  
+<html>  
+<head>  
+    <title>Retro Arcade Catalog</title>  
+    <style>  
+        body {  
+            background-color: {{ styles.background }};  
+            color: {{ styles.text_color }};  
+            font-family: 'Courier New', monospace;  
+            margin: 0;  
+            padding: {{ styles.padding }};  
+        }  
+        .header {  
+            text-align: center;  
+            font-size: 2em;  
+            margin: 20px 0;  
+            text-shadow: 0 0 5px {{ styles.highlight_color }};  
+        }  
+        .game-card {  
+            background: {{ styles.frame_bg }};  
+            border: {{ styles.border_width }} solid {{ styles.highlight_color }};  
+            margin: 10px auto;  
+            padding: {{ styles.padding }};  
+            max-width: 800px;  
+            box-shadow: 0 0 10px {{ styles.highlight_color }};  
+        }  
+        .game-header {  
+            display: flex;  
+            justify-content: space-between;  
+            align-items: center;  
+            margin-bottom: 10px;  
+        }  
+        .game-title {  
+            font-size: 1.5em;  
+            letter-spacing: 2px;  
+        }  
+        .game-year {  
+            opacity: 0.8;  
+        }  
+        p {  
+            margin: 0;  
+            line-height: 1.5;  
+        }  
+    </style>  
+</head>  
+<body>  
+    <div class="header">🕹️ CLASSIC ARCADE GAMES 🕹️</div>  
+    {% for game in games %}  
+    <div class="game-card">  
+        <div class="game-header">  
+            <h2 class="game-title">{{ game.name }}</h2>  
+            <div class="game-year">{{ game.year }}</div>  
+        </div>  
+        <p>{{ game.description }}</p>  
+    </div>  
+    {% endfor %}  
+</body>  
+</html>  

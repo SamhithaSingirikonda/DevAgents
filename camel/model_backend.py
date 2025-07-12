@@ -1,6 +1,6 @@
 # =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
 # Licensed under the Apache License, Version 2.0 (the “License”);
-# you may not use this file except in compliance with the License.
+# You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
@@ -13,29 +13,27 @@
 # =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+from dotenv import load_dotenv
+load_dotenv()
 
+import os
 import openai
 import tiktoken
-
 from camel.typing import ModelType
 from chatdev.statistics import prompt_cost
 from chatdev.utils import log_visualize
 
 try:
     from openai.types.chat import ChatCompletion
-
     openai_new_api = True  # new openai api version
 except ImportError:
     openai_new_api = False  # old openai api version
 
-import os
-
-OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
-if 'BASE_URL' in os.environ:
-    BASE_URL = os.environ['BASE_URL']
-else:
-    BASE_URL = None
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_base = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+BASE_URL = os.getenv("OPENAI_API_BASE")
+MODEL_ID = os.getenv("OPENAI_MODEL")
 
 class ModelBackend(ABC):
     r"""Base class for different model backends.
@@ -56,7 +54,7 @@ class ModelBackend(ABC):
 
 
 class OpenAIModel(ModelBackend):
-    r"""OpenAI API in a unified ModelBackend interface."""
+    r"""OpenAI or OpenRouter API in a unified ModelBackend interface."""
 
     def __init__(self, model_type: ModelType, model_config_dict: Dict) -> None:
         super().__init__()
@@ -70,39 +68,32 @@ class OpenAIModel(ModelBackend):
         gap_between_send_receive = 15 * len(kwargs["messages"])
         num_prompt_tokens += gap_between_send_receive
 
+        custom_token_limits = {
+            "deepseek-ai/deepseek-coder:6.7b": 16385,
+            "deepseek/deepseek-r1:free": 16385,
+            "deepseek-ai/deepseek-coder-instruct:6.7b": 16385,
+            "openchat/openchat-3.5": 8192,
+            "gpt-3.5-turbo": 4096,
+            "gpt-4": 8192,
+            "gpt-4o": 128000,
+        }
+
+        model_id = MODEL_ID or self.model_type.value
+        num_max_token = custom_token_limits.get(model_id, 16000)
+        num_max_completion_tokens = num_max_token - num_prompt_tokens
+        self.model_config_dict['max_tokens'] = max(512, num_max_completion_tokens)
+
         if openai_new_api:
-            # Experimental, add base_url
-            if BASE_URL:
-                client = openai.OpenAI(
-                    api_key=OPENAI_API_KEY,
-                    base_url=BASE_URL,
-                )
-            else:
-                client = openai.OpenAI(
-                    api_key=OPENAI_API_KEY
-                )
+            client = openai.OpenAI(
+                api_key=OPENAI_API_KEY,
+                base_url=BASE_URL
+            )
 
-            num_max_token_map = {
-                "gpt-3.5-turbo": 4096,
-                "gpt-3.5-turbo-16k": 16384,
-                "gpt-3.5-turbo-0613": 4096,
-                "gpt-3.5-turbo-16k-0613": 16384,
-                "gpt-4": 8192,
-                "gpt-4-0613": 8192,
-                "gpt-4-32k": 32768,
-                "gpt-4-turbo": 100000,
-                "gpt-4o": 4096, #100000
-                "gpt-4o-mini": 16384, #100000
-            }
-            num_max_token = num_max_token_map[self.model_type.value]
-            num_max_completion_tokens = num_max_token - num_prompt_tokens
-            self.model_config_dict['max_tokens'] = num_max_completion_tokens
-
-            response = client.chat.completions.create(*args, **kwargs, model=self.model_type.value,
+            response = client.chat.completions.create(*args, **kwargs, model=model_id,
                                                       **self.model_config_dict)
 
             cost = prompt_cost(
-                self.model_type.value,
+                model_id,
                 num_prompt_tokens=response.usage.prompt_tokens,
                 num_completion_tokens=response.usage.completion_tokens
             )
@@ -115,27 +106,11 @@ class OpenAIModel(ModelBackend):
                 raise RuntimeError("Unexpected return from OpenAI API")
             return response
         else:
-            num_max_token_map = {
-                "gpt-3.5-turbo": 4096,
-                "gpt-3.5-turbo-16k": 16384,
-                "gpt-3.5-turbo-0613": 4096,
-                "gpt-3.5-turbo-16k-0613": 16384,
-                "gpt-4": 8192,
-                "gpt-4-0613": 8192,
-                "gpt-4-32k": 32768,
-                "gpt-4-turbo": 100000,
-                "gpt-4o": 4096, #100000
-                "gpt-4o-mini": 16384, #100000
-            }
-            num_max_token = num_max_token_map[self.model_type.value]
-            num_max_completion_tokens = num_max_token - num_prompt_tokens
-            self.model_config_dict['max_tokens'] = num_max_completion_tokens
-
-            response = openai.ChatCompletion.create(*args, **kwargs, model=self.model_type.value,
+            response = openai.ChatCompletion.create(*args, **kwargs, model=model_id,
                                                     **self.model_config_dict)
 
             cost = prompt_cost(
-                self.model_type.value,
+                model_id,
                 num_prompt_tokens=response["usage"]["prompt_tokens"],
                 num_completion_tokens=response["usage"]["completion_tokens"]
             )
@@ -199,6 +174,5 @@ class ModelFactory:
         if model_type is None:
             model_type = default_model_type
 
-        # log_visualize("Model Type: {}".format(model_type))
         inst = model_class(model_type, model_config_dict)
         return inst

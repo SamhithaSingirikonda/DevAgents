@@ -1,0 +1,5 @@
+1. Install dependencies:
+pip install -r requirements.txt
+2. Run the application:
+python main.py
+3. Use the GUI to register and login

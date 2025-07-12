@@ -5,7 +5,6 @@ import time
 import logging
 from easydict import EasyDict
 import openai
-from openai import OpenAI
 import numpy as np
 import os
 from abc import ABC, abstractmethod
